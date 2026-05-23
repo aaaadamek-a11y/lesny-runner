@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lesný Beh - Skáč a Zbieraj!</title>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family:'Fredoka',sans-serif; background-color:#0f172a; user-select:none; -webkit-user-select:none; touch-action:none; overflow:hidden; }
+        #game-parent { aspect-ratio:16/9; max-width:100%; max-height:100vh; position:relative; }
+        canvas { display:block; }
+        .custom-scrollbar::-webkit-scrollbar { width:6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background:rgba(255,255,255,0.05); border-radius:3px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background:rgba(16,185,129,0.5); border-radius:3px; }
+        .ability-badge { font-size:0.6rem; padding:2px 8px; border-radius:999px; margin-top:3px; font-weight:700; display:inline-block; }
+        @keyframes pulse-ring { 0%{box-shadow:0 0 0 0 rgba(255,255,255,0.4)} 70%{box-shadow:0 0 0 16px rgba(255,255,255,0)} 100%{box-shadow:0 0 0 0 rgba(255,255,255,0)} }
+        #jump-btn { animation:pulse-ring 2s infinite; }
+        @keyframes combo-pop { 0%{transform:scale(1)} 50%{transform:scale(1.3)} 100%{transform:scale(1)} }
+        .combo-pop { animation:combo-pop 0.25s ease forwards; }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-0 sm:p-4 bg-slate-900">
+<div class="relative w-full max-w-5xl bg-slate-800 rounded-xl sm:rounded-3xl overflow-hidden shadow-2xl border-0 sm:border-4 border-emerald-500 flex flex-col items-center justify-center" id="game-parent">
+
+    <!-- START SCREEN -->
+    <div id="start-screen" class="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gradient-to-br from-emerald-900 via-slate-900 to-cyan-900 p-4 text-white">
+        <h1 class="text-4xl md:text-6xl font-bold mb-2 text-center text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-300 drop-shadow-lg">LESNÝ RUNNER</h1>
+        <p class="text-xs md:text-sm text-emerald-200 mb-6 text-center tracking-wide">ZBIERAJ OVOCIE, PRESKAKUJ PREKÁŽKY A VYHÝBAJ SA OBLAKOM!</p>
+        <div class="w-full max-w-md bg-white/10 backdrop-blur-md p-6 rounded-2xl border border-white/10 flex flex-col gap-5 shadow-2xl">
+            <div>
+                <label class="block text-sm font-semibold text-emerald-300 mb-1 text-center">Meno tvojho hrdinu:</label>
+                <!-- FIX: maxlength (nie max) -->
+                <input type="text" id="username" maxlength="12" placeholder="Tvoje Meno" class="w-full px-4 py-2 rounded-xl bg-slate-800 text-white border border-emerald-500/50 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-400/20 outline-none transition text-center font-bold text-lg">
+            </div>
+            <div>
+                <label class="block text-sm font-semibold text-emerald-300 mb-2 text-center">Vyber si postavu:</label>
+                <div class="grid grid-cols-3 gap-3">
+                    <button onclick="selectCharacter('zajko')" id="btn-zajko" class="char-btn flex flex-col items-center p-2 rounded-xl bg-slate-700 border-2 border-emerald-500 transition hover:scale-105">
+                        <div class="w-16 h-16 bg-pink-400/20 rounded-full flex items-center justify-center mb-1 overflow-hidden shadow-inner">
+                            <img src="data:image/svg+xml;utf8,<svg width='150' height='150' xmlns='http://www.w3.org/2000/svg'><defs><linearGradient id='r1' x1='0' y1='0' x2='0' y2='1'><stop offset='0%25' stop-color='%23fbcfe8'/><stop offset='100%25' stop-color='%23f472b6'/></linearGradient></defs><circle cx='35' cy='90' r='15' fill='%23fff'/><ellipse cx='75' cy='95' rx='35' ry='25' fill='url(%23r1)'/><ellipse cx='75' cy='105' rx='25' ry='10' fill='%23fff'/><circle cx='105' cy='65' r='25' fill='url(%23r1)'/><ellipse cx='115' cy='70' rx='12' ry='8' fill='%23fff'/><circle cx='125' cy='68' r='3' fill='%23000'/><ellipse cx='90' cy='30' rx='8' ry='25' transform='rotate(-20 90 30)' fill='url(%23r1)'/><ellipse cx='110' cy='30' rx='8' ry='25' transform='rotate(10 110 30)' fill='url(%23r1)'/><rect x='55' y='110' width='10' height='20' rx='4' fill='%23be185d'/><rect x='85' y='110' width='10' height='20' rx='4' fill='%23be185d'/></svg>" class="w-14 h-14 object-contain">
+                        </div>
+                        <span class="text-sm font-bold text-pink-300">Zajko</span>
+                        <span class="ability-badge bg-pink-500/30 text-pink-200">↑ Vyšší skok</span>
+                    </button>
+                    <button onclick="selectCharacter('macka')" id="btn-macka" class="char-btn flex flex-col items-center p-2 rounded-xl bg-slate-800 border-2 border-transparent transition hover:scale-105">
+                        <div class="w-16 h-16 bg-cyan-400/20 rounded-full flex items-center justify-center mb-1 overflow-hidden shadow-inner">
+                            <img src="data:image/svg+xml;utf8,<svg width='150' height='150' xmlns='http://www.w3.org/2000/svg'><defs><linearGradient id='c1' x1='0' y1='0' x2='0' y2='1'><stop offset='0%25' stop-color='%2367e8f9'/><stop offset='100%25' stop-color='%2306b6d4'/></linearGradient></defs><path d='M40 100 Q 10 100 10 60 Q 20 40 30 50 Q 20 70 40 85 Z' fill='url(%23c1)'/><ellipse cx='75' cy='95' rx='35' ry='20' fill='url(%23c1)'/><ellipse cx='75' cy='105' rx='25' ry='8' fill='%23fff'/><circle cx='105' cy='65' r='25' fill='url(%23c1)'/><ellipse cx='115' cy='70' rx='12' ry='8' fill='%23fff'/><circle cx='125' cy='68' r='3' fill='%23000'/><polygon points='90,45 95,20 110,45' fill='url(%23c1)'/><polygon points='105,45 120,25 125,50' fill='url(%23c1)'/><rect x='55' y='110' width='8' height='20' rx='3' fill='%23155e75'/><rect x='85' y='110' width='8' height='20' rx='3' fill='%23155e75'/></svg>" class="w-14 h-14 object-contain">
+                        </div>
+                        <span class="text-sm font-bold text-cyan-300">Mačka</span>
+                        <span class="ability-badge bg-cyan-500/30 text-cyan-200">⚡ Rýchlejšia</span>
+                    </button>
+                    <button onclick="selectCharacter('liska')" id="btn-liska" class="char-btn flex flex-col items-center p-2 rounded-xl bg-slate-800 border-2 border-transparent transition hover:scale-105">
+                        <div class="w-16 h-16 bg-amber-500/20 rounded-full flex items-center justify-center mb-1 overflow-hidden shadow-inner">
+                            <img src="data:image/svg+xml;utf8,<svg width='150' height='150' xmlns='http://www.w3.org/2000/svg'><defs><linearGradient id='f1' x1='0' y1='0' x2='0' y2='1'><stop offset='0%25' stop-color='%23fb923c'/><stop offset='100%25' stop-color='%23ea580c'/></linearGradient></defs><path d='M20 90 C 0 90 0 60 25 55 C 50 50 60 70 50 90 C 45 100 30 100 20 90 Z' fill='url(%23f1)'/><path d='M20 90 C 10 95 5 70 20 55 C 10 70 15 85 20 90 Z' fill='%23fff'/><ellipse cx='75' cy='95' rx='35' ry='25' fill='url(%23f1)'/><ellipse cx='75' cy='105' rx='25' ry='10' fill='%23fff'/><circle cx='105' cy='65' r='28' fill='url(%23f1)'/><ellipse cx='115' cy='75' rx='18' ry='12' fill='%23fff'/><circle cx='130' cy='70' r='4' fill='%23000'/><polygon points='90,45 95,15 110,40' fill='url(%23f1)'/><polygon points='105,40 125,20 125,45' fill='url(%23f1)'/><rect x='55' y='110' width='10' height='20' rx='4' fill='%237c2d12'/><rect x='85' y='110' width='10' height='20' rx='4' fill='%237c2d12'/></svg>" class="w-14 h-14 object-contain">
+                        </div>
+                        <span class="text-sm font-bold text-orange-300">Líška</span>
+                        <span class="ability-badge bg-amber-500/30 text-amber-200">🧲 Magnet</span>
+                    </button>
+                </div>
+            </div>
+            <button onclick="startGame()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold py-3 px-6 rounded-xl shadow-lg transform hover:-translate-y-0.5 transition text-xl mt-2">
+                ŠTART HRY <i class="fa-solid fa-play ml-2"></i>
+            </button>
+        </div>
+        <button onclick="toggleLeaderboardModal(true)" class="mt-6 text-sm text-emerald-300 hover:text-white underline tracking-wide">
+            <i class="fa-solid fa-trophy mr-1 text-amber-400"></i> Pozrieť si Rebríček
+        </button>
+    </div>
+
+    <!-- LEADERBOARD MODAL -->
+    <div id="leaderboard-modal" class="hidden absolute inset-0 z-30 flex flex-col items-center justify-center bg-black/90 p-4 text-white">
+        <div class="w-full max-w-md bg-slate-800 rounded-2xl p-6 border border-emerald-500/30 flex flex-col shadow-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-emerald-400"><i class="fa-solid fa-trophy text-amber-400 mr-2"></i>Sieň Slávy</h2>
+                <button onclick="toggleLeaderboardModal(false)" class="text-gray-400 hover:text-white text-2xl"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="flex-grow overflow-y-auto max-h-64 pr-2 custom-scrollbar">
+                <table class="w-full text-left">
+                    <tbody id="leaderboard-rows" class="divide-y divide-gray-700/50 text-sm"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- GAME CANVAS -->
+    <div id="game-canvas" class="w-full h-full bg-[#7dd3fc]"></div>
+
+    <!-- HUD OVERLAY -->
+    <div id="hud-overlay" class="hidden absolute top-4 left-4 right-4 z-10 flex justify-between items-start pointer-events-none text-white">
+        <div class="flex flex-col gap-2">
+            <div class="bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 shadow-lg flex items-center gap-2">
+                <i class="fa-solid fa-star text-amber-400"></i>
+                <span class="text-sm font-semibold text-gray-300">SKÓRE:</span>
+                <span id="hud-score" class="text-2xl font-black text-white">0</span>
+            </div>
+            <div class="bg-slate-900/80 backdrop-blur-md px-4 py-1.5 rounded-xl border border-white/10 shadow flex items-center gap-2">
+                <i class="fa-solid fa-user text-emerald-400"></i>
+                <span id="hud-player-name" class="font-bold text-sm text-white">Hráč</span>
+            </div>
+            <!-- LIVES -->
+            <div class="bg-slate-900/80 backdrop-blur-md px-4 py-1.5 rounded-xl border border-white/10 shadow flex items-center gap-2">
+                <span class="text-xs font-semibold text-gray-300 mr-1">ŽIVOTY:</span>
+                <i class="fa-solid fa-heart text-red-400 text-lg transition-all" id="life-1"></i>
+                <i class="fa-solid fa-heart text-red-400 text-lg transition-all" id="life-2"></i>
+            </div>
+        </div>
+        <div class="flex flex-col gap-2 items-end">
+            <!-- COMBO -->
+            <div id="hud-combo" class="hidden bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-xl border border-amber-400/50 shadow-lg flex items-center gap-1">
+                <i class="fa-solid fa-fire text-amber-400 text-sm"></i>
+                <span class="text-xs text-gray-300">COMBO</span>
+                <span id="combo-display" class="text-xl font-black text-amber-400 ml-1">×1</span>
+            </div>
+            <div class="hidden md:flex bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 text-xs items-center gap-2 shadow-lg">
+                <kbd class="bg-slate-700 px-2 py-1 rounded font-bold border-b-2 border-slate-600">MEDZERNÍK / KLIK</kbd> = Skok / Dvojskok
+            </div>
+        </div>
+    </div>
+
+    <!-- MOBILE JUMP BUTTON -->
+    <div id="mobile-btn-wrap" class="hidden absolute bottom-6 right-6 z-10">
+        <button id="jump-btn" ontouchstart="mobileJump();return false;" onclick="mobileJump()"
+            class="w-20 h-20 rounded-full bg-white/20 border-2 border-white/50 backdrop-blur-md flex items-center justify-center shadow-2xl active:scale-90 transition-transform select-none">
+            <i class="fa-solid fa-arrow-up text-white text-3xl"></i>
+        </button>
+    </div>
+
+    <!-- GAME OVER -->
+    <div id="game-over-screen" class="hidden absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/85 backdrop-blur-sm p-4 text-white">
+        <h2 class="text-4xl md:text-5xl font-black text-red-500 mb-2 animate-bounce drop-shadow-lg text-center">ÉEEJHO NARAZIL SI</h2>
+        <p id="game-over-reason" class="text-lg text-gray-300 mb-2 text-center bg-slate-900/50 px-4 py-1 rounded-full border border-gray-700">Narazil si.</p>
+        <p id="new-record-badge" class="hidden text-amber-400 font-black text-2xl mb-4 animate-bounce">🏆 NOVÝ REKORD!</p>
+        <div class="bg-slate-900/95 border border-emerald-500/30 p-8 rounded-3xl shadow-2xl flex flex-col items-center">
+            <span class="text-gray-400 text-sm uppercase font-bold tracking-widest mb-1">Tvoje skóre</span>
+            <span id="final-score" class="text-7xl font-black text-amber-400 mb-8 drop-shadow-md">0</span>
+            <div class="flex gap-4 w-full justify-center">
+                <button onclick="restartGame()" class="flex-1 bg-emerald-500 hover:bg-emerald-400 py-3 px-4 rounded-xl font-bold transition shadow-lg text-lg text-white">
+                    <i class="fa-solid fa-rotate-left mr-2"></i> Znova
+                </button>
+                <button onclick="goToMenu()" class="flex-1 bg-slate-700 hover:bg-slate-600 py-3 px-4 rounded-xl font-bold transition shadow-lg text-lg text-white">
+                    <i class="fa-solid fa-house mr-2"></i> Menu
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let game = null;
+    let selectedChar = 'zajko';
+    let playerName = 'Hráč';
+
+    // Skóre sa ukladá do Supabase cez /api/scores
+
+    // ===== SOUND SYSTEM (Web Audio API) =====
+    const SFX = {
+        ctx: null,
+        init() {
+            try { const AC = window.AudioContext||window.webkitAudioContext; if(AC) this.ctx=new AC(); } catch(e){}
+        },
+        resume() { if(this.ctx?.state==='suspended') this.ctx.resume(); },
+        tone(f1, f2, type, vol, dur, delay=0) {
+            if(!this.ctx) return;
+            try {
+                const o=this.ctx.createOscillator(), g=this.ctx.createGain();
+                o.connect(g); g.connect(this.ctx.destination);
+                const t=this.ctx.currentTime+delay;
+                o.type=type||'sine';
+                o.frequency.setValueAtTime(f1,t);
+                if(f2) o.frequency.exponentialRampToValueAtTime(f2, t+dur*0.7);
+                g.gain.setValueAtTime(vol,t);
+                g.gain.exponentialRampToValueAtTime(0.001, t+dur);
+                o.start(t); o.stop(t+dur+0.01);
+            } catch(e){}
+        },
+        play(type) {
+            this.resume();
+            if(type==='jump')       this.tone(280,560,'sine',0.22,0.22);
+            else if(type==='dj')    this.tone(420,840,'sine',0.18,0.22);
+            else if(type==='coin')  this.tone(660,880,'sine',0.13,0.18);
+            else if(type==='combo') this.tone(880,1760,'triangle',0.18,0.28);
+            else if(type==='hit') { this.tone(200,80,'square',0.28,0.35); }
+            else if(type==='over') { this.tone(440,220,'sawtooth',0.25,0.4); this.tone(200,80,'sawtooth',0.2,0.4,0.35); }
+        }
+    };
+    SFX.init();
+
+    // ===== CHARACTER ABILITIES =====
+    const CHAR = {
+        zajko:{ j1:-1000, j2:-880, spd:1.0,  mag:false, emoji:'🐰' },
+        macka:{ j1:-850,  j2:-750, spd:1.15, mag:false, emoji:'🐱' },
+        liska:{ j1:-850,  j2:-750, spd:1.0,  mag:true,  emoji:'🦊' }
+    };
+
+    // ===== SKY DAY/NIGHT STAGES =====
+    const SKY=[
+        {score:0,    r:125,g:211,b:252},
+        {score:500,  r:251,g:140,b:80 },
+        {score:1000, r:130,g:80, b:200},
+        {score:1500, r:10, g:15, b:60 }
+    ];
+
+    // ===== UI HELPERS =====
+    function selectCharacter(id) {
+        selectedChar = id;
+        document.querySelectorAll('.char-btn').forEach(b => {
+            b.classList.remove('border-emerald-500','bg-slate-700');
+            b.classList.add('border-transparent','bg-slate-800');
+        });
+        const b = document.getElementById(`btn-${id}`);
+        b.classList.remove('border-transparent','bg-slate-800');
+        b.classList.add('border-emerald-500','bg-slate-700');
+    }
+
+    function toggleLeaderboardModal(show) {
+        const m = document.getElementById('leaderboard-modal');
+        if (show) {
+            m.classList.remove('hidden');
+            renderLeaderboardTable(); // async, spustí sa na pozadí
+        } else {
+            m.classList.add('hidden');
+        }
+    }
+
+    async function renderLeaderboardTable() {
+        const tbody = document.getElementById('leaderboard-rows');
+        tbody.innerHTML = '<tr><td colspan="3" class="py-6 text-center text-gray-400"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Načítavam rebríček...</td></tr>';
+        try {
+            const res = await fetch('/api/scores');
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const lb = await res.json();
+            tbody.innerHTML = '';
+            const medals = ['🥇','🥈','🥉'];
+            if (lb.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="3" class="py-6 text-center text-gray-400">Zatiaľ žiadne skóre!</td></tr>';
+                return;
+            }
+            lb.forEach((e, i) => {
+                const row = document.createElement('tr');
+                row.className = `border-b border-gray-700/30 ${i===0?'bg-emerald-500/10 font-bold':''}`;
+                const em = CHAR[e.character]?.emoji || '🎮';
+                row.innerHTML = `
+                    <td class="py-3 pl-2 text-lg">${medals[i] || (i+1)+'.'}</td>
+                    <td class="py-3">${em} <span class="uppercase tracking-wider">${e.name}</span></td>
+                    <td class="py-3 text-right pr-2 text-emerald-400 font-bold">${e.score}</td>`;
+                tbody.appendChild(row);
+            });
+        } catch(err) {
+            console.error('Leaderboard error:', err);
+            tbody.innerHTML = '<tr><td colspan="3" class="py-6 text-center text-red-400"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Chyba pri načítaní!</td></tr>';
+        }
+    }
+
+    async function saveScore() {
+        if (!window.currentGameScore || window.currentGameScore <= 0) return false;
+        try {
+            const res = await fetch('/api/scores', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: playerName,
+                    score: window.currentGameScore,
+                    character: selectedChar
+                })
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            return data.isRecord === true;
+        } catch(err) {
+            console.warn('Nemožno uložiť skóre:', err);
+            return false;
+        }
+    }
+
+    function updateLives(n) {
+        document.getElementById('life-1').style.opacity = n>=1?'1':'0.2';
+        document.getElementById('life-2').style.opacity = n>=2?'1':'0.2';
+    }
+
+    function updateCombo(n) {
+        const el=document.getElementById('hud-combo');
+        const disp=document.getElementById('combo-display');
+        if(n>1){
+            el.classList.remove('hidden');
+            disp.textContent=`×${n}`;
+            disp.classList.remove('combo-pop');
+            void disp.offsetWidth;
+            disp.classList.add('combo-pop');
+        } else {
+            el.classList.add('hidden');
+        }
+    }
+
+    function mobileJump() {
+        if(!game) return;
+        const sc = game.scene.getScene('ForestScene');
+        if(sc && !sc.isGameOver) sc.triggerJump();
+    }
+
+    function checkMobileUI(show) {
+        const wrap = document.getElementById('mobile-btn-wrap');
+        if(show && ('ontouchstart' in window || navigator.maxTouchPoints>0))
+            wrap.classList.remove('hidden');
+        else if(!show)
+            wrap.classList.add('hidden');
+    }
+
+    function startGame() {
+        SFX.resume();
+        playerName = document.getElementById('username').value.trim()||'Hráč';
+        document.getElementById('hud-player-name').innerText = playerName;
+        document.getElementById('start-screen').classList.add('hidden');
+        document.getElementById('hud-overlay').classList.remove('hidden');
+        checkMobileUI(true);
+        if(!game){ initPhaser(); }
+        else { game.scene.stop('ForestScene'); game.scene.start('ForestScene'); }
+    }
+
+    function restartGame() {
+        SFX.resume();
+        document.getElementById('game-over-screen').classList.add('hidden');
+        document.getElementById('hud-overlay').classList.remove('hidden');
+        checkMobileUI(true);
+        // FIX: stop before start to clear timers
+        if(game){ game.scene.stop('ForestScene'); game.scene.start('ForestScene'); }
+    }
+
+    function goToMenu() {
+        document.getElementById('game-over-screen').classList.add('hidden');
+        document.getElementById('hud-overlay').classList.add('hidden');
+        checkMobileUI(false);
+        document.getElementById('start-screen').classList.remove('hidden');
+        if(game) game.scene.stop('ForestScene');
+    }
+
+    function initPhaser() {
+        game = new Phaser.Game({
+            type:Phaser.AUTO, parent:'game-canvas', width:1280, height:720,
+            scale:{mode:Phaser.Scale.FIT, autoCenter:Phaser.Scale.CENTER_BOTH},
+            physics:{default:'arcade', arcade:{gravity:{y:1600}, debug:false}},
+            scene:ForestScene, backgroundColor:'#7dd3fc'
+        });
+    }
+
+    // ===== PHASER SCENE =====
+    class ForestScene extends Phaser.Scene {
+        constructor(){ super('ForestScene'); }
+
+        preload() {
+            const loadingText = this.add.text(this.scale.width/2, this.scale.height/2,'Načítavam svet...',{
+                fontFamily:'Fredoka', fontSize:'32px', fill:'#fff', fontStyle:'bold'
+            }).setOrigin(0.5);
+            this.load.on('complete', () => loadingText.destroy());
+
+            const SVGS = {
+                'char-zajko':`<svg width="150" height="150" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="r1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#fbcfe8"/><stop offset="100%" stop-color="#f472b6"/></linearGradient></defs><circle cx="35" cy="90" r="15" fill="#fff"/><ellipse cx="75" cy="95" rx="35" ry="25" fill="url(#r1)"/><ellipse cx="75" cy="105" rx="25" ry="10" fill="#fff"/><circle cx="105" cy="65" r="25" fill="url(#r1)"/><ellipse cx="115" cy="70" rx="12" ry="8" fill="#fff"/><circle cx="125" cy="68" r="3" fill="#000"/><ellipse cx="90" cy="30" rx="8" ry="25" transform="rotate(-20 90 30)" fill="url(#r1)"/><ellipse cx="110" cy="30" rx="8" ry="25" transform="rotate(10 110 30)" fill="url(#r1)"/><rect x="55" y="110" width="10" height="20" rx="4" fill="#be185d"/><rect x="85" y="110" width="10" height="20" rx="4" fill="#be185d"/></svg>`,
+                'char-macka':`<svg width="150" height="150" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="c1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#67e8f9"/><stop offset="100%" stop-color="#06b6d4"/></linearGradient></defs><path d="M40 100 Q 10 100 10 60 Q 20 40 30 50 Q 20 70 40 85 Z" fill="url(#c1)"/><ellipse cx="75" cy="95" rx="35" ry="20" fill="url(#c1)"/><ellipse cx="75" cy="105" rx="25" ry="8" fill="#fff"/><circle cx="105" cy="65" r="25" fill="url(#c1)"/><ellipse cx="115" cy="70" rx="12" ry="8" fill="#fff"/><circle cx="125" cy="68" r="3" fill="#000"/><polygon points="90,45 95,20 110,45" fill="url(#c1)"/><polygon points="105,45 120,25 125,50" fill="url(#c1)"/><rect x="55" y="110" width="8" height="20" rx="3" fill="#155e75"/><rect x="85" y="110" width="8" height="20" rx="3" fill="#155e75"/></svg>`,
+                'char-liska':`<svg width="150" height="150" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="f1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#fb923c"/><stop offset="100%" stop-color="#ea580c"/></linearGradient></defs><path d="M20 90 C 0 90 0 60 25 55 C 50 50 60 70 50 90 C 45 100 30 100 20 90 Z" fill="url(#f1)"/><path d="M20 90 C 10 95 5 70 20 55 C 10 70 15 85 20 90 Z" fill="#fff"/><ellipse cx="75" cy="95" rx="35" ry="25" fill="url(#f1)"/><ellipse cx="75" cy="105" rx="25" ry="10" fill="#fff"/><circle cx="105" cy="65" r="28" fill="url(#f1)"/><ellipse cx="115" cy="75" rx="18" ry="12" fill="#fff"/><circle cx="130" cy="70" r="4" fill="#000"/><polygon points="90,45 95,15 110,40" fill="url(#f1)"/><polygon points="105,40 125,20 125,45" fill="url(#f1)"/><rect x="55" y="110" width="10" height="20" rx="4" fill="#7c2d12"/><rect x="85" y="110" width="10" height="20" rx="4" fill="#7c2d12"/></svg>`,
+                'apple':`<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="ag" cx="30%" cy="30%" r="70%"><stop offset="0%" stop-color="#fca5a5"/><stop offset="100%" stop-color="#dc2626"/></radialGradient></defs><path d="M50 25 C25 5 0 30 10 55 C20 80 40 95 50 90 C60 95 80 80 90 55 C100 30 75 5 50 25 Z" fill="url(#ag)"/><path d="M48 25 Q50 10 55 5" stroke="#78350f" stroke-width="4" fill="none"/><path d="M55 10 Q70 0 75 15 Q60 25 55 10 Z" fill="#22c55e"/></svg>`,
+                'banana':`<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><path d="M20 80 C 15 80 40 100 80 25 C 80 25 60 85 25 70 Z" fill="#facc15"/><path d="M15 85 L25 70 L20 80 Z" fill="#422006"/><path d="M80 25 L85 20 L78 30 Z" fill="#422006"/></svg>`,
+                'strawberry':`<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="sg" cx="30%" cy="30%" r="70%"><stop offset="0%" stop-color="#f87171"/><stop offset="100%" stop-color="#e11d48"/></radialGradient></defs><path d="M25 35 C15 35 15 55 35 85 C45 100 65 100 75 85 C95 55 95 35 85 35 Z" fill="url(#sg)"/><path d="M35 35 L45 25 L55 30 L65 25 L75 35 L55 45 Z" fill="#16a34a"/><circle cx="40" cy="50" r="2.5" fill="#fef08a"/><circle cx="70" cy="50" r="2.5" fill="#fef08a"/><circle cx="55" cy="65" r="2.5" fill="#fef08a"/><circle cx="45" cy="75" r="2.5" fill="#fef08a"/><circle cx="65" cy="75" r="2.5" fill="#fef08a"/></svg>`,
+                'tree':`<svg width="220" height="280" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="t1" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#78350f"/><stop offset="50%" stop-color="#b45309"/><stop offset="100%" stop-color="#78350f"/></linearGradient><radialGradient id="l1" cx="30%" cy="30%" r="70%"><stop offset="0%" stop-color="#4ade80"/><stop offset="100%" stop-color="#14532d"/></radialGradient></defs><path d="M95 270 C 95 200 80 140 110 140 C 140 140 125 200 125 270 Z" fill="url(#t1)"/><circle cx="110" cy="100" r="80" fill="url(#l1)"/><circle cx="60" cy="140" r="60" fill="url(#l1)"/><circle cx="160" cy="140" r="60" fill="url(#l1)"/><circle cx="110" cy="160" r="55" fill="url(#l1)"/></svg>`,
+                'bush':`<svg width="180" height="110" xmlns="http://www.w3.org/2000/svg"><defs><radialGradient id="b1" cx="40%" cy="30%" r="60%"><stop offset="0%" stop-color="#4ade80"/><stop offset="100%" stop-color="#14532d"/></radialGradient></defs><circle cx="50" cy="60" r="40" fill="url(#b1)"/><circle cx="90" cy="40" r="50" fill="url(#b1)"/><circle cx="130" cy="60" r="45" fill="url(#b1)"/><rect x="15" y="80" width="150" height="25" fill="url(#b1)" rx="12"/></svg>`,
+                'puddle':`<svg width="180" height="40" xmlns="http://www.w3.org/2000/svg"><ellipse cx="90" cy="20" rx="85" ry="15" fill="#0284c7"/><ellipse cx="60" cy="15" rx="30" ry="6" fill="#7dd3fc"/></svg>`,
+                'cloud':`<svg width="240" height="120" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="cl1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#e2e8f0"/></linearGradient></defs><circle cx="60" cy="70" r="35" fill="url(#cl1)"/><circle cx="110" cy="50" r="45" fill="url(#cl1)"/><circle cx="170" cy="60" r="40" fill="url(#cl1)"/><circle cx="200" cy="80" r="30" fill="url(#cl1)"/></svg>`,
+                'mountains':`<svg width="1024" height="512" xmlns="http://www.w3.org/2000/svg"><path d="M0 512 L200 200 L400 512 Z" fill="#64748b"/><path d="M200 200 L250 250 L150 250 Z" fill="#cbd5e1"/><path d="M300 512 L500 150 L700 512 Z" fill="#475569"/><path d="M500 150 L560 210 L440 210 Z" fill="#cbd5e1"/><path d="M600 512 L800 100 L1024 400 V512 Z" fill="#334155"/><path d="M800 100 L880 180 L720 180 Z" fill="#cbd5e1"/></svg>`,
+                'hills':`<svg width="1024" height="256" xmlns="http://www.w3.org/2000/svg"><ellipse cx="256" cy="256" rx="400" ry="200" fill="#22c55e"/><ellipse cx="768" cy="256" rx="500" ry="220" fill="#16a34a"/></svg>`,
+                'sparkle':`<svg width="24" height="24" xmlns="http://www.w3.org/2000/svg"><polygon points="12,0 14,10 24,12 14,14 12,24 10,14 0,12 10,10" fill="#fef08a"/></svg>`,
+                'dust':`<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg"><circle cx="20" cy="20" r="18" fill="#d6d3d1" opacity="0.6"/></svg>`
+            };
+
+            for(const key in SVGS){
+                if(!this.textures.exists(key)){
+                    const blob=new Blob([SVGS[key]],{type:'image/svg+xml;charset=utf-8'});
+                    this.load.svg(key, URL.createObjectURL(blob));
+                }
+            }
+            if(!this.textures.exists('ground')){
+                const c=this.textures.createCanvas('ground',1024,128);
+                const ctx=c.context;
+                ctx.fillStyle='#65a30d'; ctx.fillRect(0,0,1024,30);
+                ctx.fillStyle='#4d7c0f'; ctx.fillRect(0,30,1024,20);
+                ctx.fillStyle='#451a03'; ctx.fillRect(0,50,1024,78);
+                c.refresh();
+            }
+        }
+
+        create() {
+            const W=this.scale.width, H=this.scale.height, gY=H-80;
+            const cfg=CHAR[selectedChar];
+
+            // State
+            window.currentGameScore=0;
+            this.score=0; this.speed=500; this.speedTimer=0; this.jumpCount=0;
+            this.isGameOver=false; this.lives=2; this.isInvincible=false;
+            this.comboCount=0; this.lastFruitTime=0; this.passiveTimer=0;
+            this.skyStage=0; this.skyTransiting=false;
+            this.skyColor={r:SKY[0].r,g:SKY[0].g,b:SKY[0].b};
+            this.j1=cfg.j1; this.j2=cfg.j2; this.spdMult=cfg.spd; this.hasMag=cfg.mag;
+
+            updateLives(2); updateCombo(0);
+
+            // Sky
+            this.skyRect=this.add.rectangle(W/2,H/2,W,H,0x7dd3fc).setDepth(-5);
+
+            // Stars (hidden until night)
+            this.starGroup=this.add.group();
+            for(let i=0;i<65;i++){
+                const s=this.add.circle(
+                    Phaser.Math.Between(0,W), Phaser.Math.Between(10,gY-80),
+                    Phaser.Math.Between(1,3), 0xffffff
+                ).setDepth(-4).setAlpha(0);
+                this.starGroup.add(s);
+            }
+
+            // Parallax backgrounds
+            this.bgMountains=this.add.tileSprite(W/2,H-256,W,512,'mountains').setOrigin(0.5);
+            this.bgHills=this.add.tileSprite(W/2,gY-60,W,256,'hills').setOrigin(0.5);
+            this.movingGround=this.add.tileSprite(W/2,gY+64,W,128,'ground').setOrigin(0.5).setDepth(10);
+
+            // Physics ground
+            this.ground=this.physics.add.staticGroup();
+            const floor=this.add.rectangle(W/2,gY+40,W,80);
+            this.physics.add.existing(floor,true);
+            this.ground.add(floor);
+
+            // Object groups
+            this.obstacles=this.physics.add.group();
+            this.clouds=this.physics.add.group();
+            this.fruits=this.physics.add.group();
+
+            // Player
+            this.player=this.physics.add.sprite(200,gY-100,`char-${selectedChar}`);
+            this.player.setOrigin(0.5,1).setScale(0.7).setCollideWorldBounds(true).setDepth(15);
+            this.player.body.setSize(this.player.width*0.4, this.player.height*0.6);
+            this.player.body.setOffset(this.player.width*0.3, this.player.height*0.4);
+
+            this.runTween=this.tweens.add({
+                targets:this.player, scaleY:0.62, scaleX:0.75,
+                duration:150, yoyo:true, repeat:-1, ease:'Quad.easeInOut'
+            });
+
+            // Particles
+            this.sparkles=this.add.particles(0,0,'sparkle',{speed:{min:100,max:200},scale:{start:0.8,end:0},lifespan:500,gravityY:200,emitting:false}).setDepth(20);
+            this.dustPfx=this.add.particles(0,0,'dust',{speedX:{min:-50,max:50},speedY:{min:-20,max:-80},scale:{start:1,end:0},alpha:{start:0.5,end:0},lifespan:400,emitting:false}).setDepth(14);
+
+            // Colliders
+            this.physics.add.collider(this.player,this.ground,()=>{
+                if(this.jumpCount>0){
+                    this.jumpCount=0; this.player.angle=0;
+                    if(!this.isGameOver){ this.runTween.resume(); this.dustPfx.emitParticleAt(this.player.x,this.player.y,4); }
+                }
+            },null,this);
+            this.physics.add.overlap(this.player,this.obstacles,this.hitObstacle,null,this);
+            this.physics.add.overlap(this.player,this.clouds,this.hitCloud,null,this);
+            this.physics.add.overlap(this.player,this.fruits,this.collectFruit,null,this);
+
+            // Input
+            this.input.keyboard.on('keydown-SPACE',this.triggerJump,this);
+            this.input.keyboard.on('keydown-UP',this.triggerJump,this);
+            this.input.on('pointerdown',this.triggerJump,this);
+
+            // Spawn timers
+            this.time.addEvent({delay:1800, callback:this.spawnObstacle, callbackScope:this, loop:true});
+            this.time.addEvent({delay:3500, callback:this.spawnCloud,    callbackScope:this, loop:true});
+            this.scheduleFruit();
+
+            // Ability hint
+            const hints={zajko:'🐰 Zajko: Vyšší skok!', macka:'🐱 Mačka: Rýchlejší beh!', liska:'🦊 Líška: Magnetický ťah!'};
+            const ht=this.add.text(W/2,140,hints[selectedChar],{fontFamily:'Fredoka',fontSize:'28px',fontStyle:'bold',fill:'#fef08a',stroke:'#000',strokeThickness:4}).setOrigin(0.5).setDepth(25).setAlpha(0);
+            this.tweens.add({targets:ht,alpha:1,y:120,duration:400,
+                onComplete:()=>this.time.delayedCall(1600,()=>this.tweens.add({targets:ht,alpha:0,duration:500,onComplete:()=>ht.destroy()}))
+            });
+        }
+
+        scheduleFruit(){
+            if(this.isGameOver) return;
+            // Random delay 800-2000ms
+            this.time.delayedCall(Phaser.Math.Between(800,2000),()=>{ this.spawnFruit(); this.scheduleFruit(); });
+        }
+
+        update(time,delta){
+            if(this.isGameOver) return;
+            const dt=delta/1000;
+            const spd=this.speed*this.spdMult;
+
+            // Parallax
+            if(this.bgMountains) this.bgMountains.tilePositionX+=spd*0.15*dt;
+            if(this.bgHills)     this.bgHills.tilePositionX    +=spd*0.4*dt;
+            if(this.movingGround)this.movingGround.tilePositionX+=spd*dt;
+
+            // Rotation in air
+            if(!this.player.body.touching.down){
+                const ta=this.player.body.velocity.y<0?-15:15;
+                this.player.angle+=(ta-this.player.angle)*0.1;
+            }
+
+            // Speed ramp
+            this.speedTimer+=delta;
+            if(this.speedTimer>5000){ this.speed=Math.min(this.speed+25,900); this.speedTimer=0; }
+
+            // Passive score per second
+            this.passiveTimer+=delta;
+            if(this.passiveTimer>=1000){
+                this.passiveTimer-=1000;
+                this.addScore(Math.max(1,Math.floor((this.speed-400)/80)));
+            }
+
+            // Combo timeout
+            if(this.comboCount>0 && (time-this.lastFruitTime)>2500){ this.comboCount=0; updateCombo(0); }
+
+            // Fruit magnet (Liska ability)
+            if(this.hasMag){
+                this.fruits.getChildren().forEach(f=>{
+                    if(!f?.active) return;
+                    const d=Phaser.Math.Distance.Between(this.player.x,this.player.y,f.x,f.y);
+                    if(d<300){
+                        const ang=Phaser.Math.Angle.Between(f.x,f.y,this.player.x,this.player.y);
+                        const force=Math.min(700, 80000/(d+1));
+                        f.body.setVelocityX(Math.cos(ang)*force-spd);
+                        f.body.setVelocityY(Math.sin(ang)*force);
+                    }
+                });
+            }
+
+            // Cleanup
+            [this.obstacles,this.clouds,this.fruits].forEach(g=>
+                g.getChildren().forEach(c=>{ if(c?.active&&c.x<-150) c.destroy(); })
+            );
+        }
+
+        addScore(pts){
+            this.score+=pts;
+            window.currentGameScore=this.score;
+            document.getElementById('hud-score').innerText=this.score;
+            this.checkSkyStage();
+        }
+
+        checkSkyStage(){
+            if(this.skyTransiting) return;
+            let ns=0;
+            for(let i=0;i<SKY.length;i++){ if(this.score>=SKY[i].score) ns=i; }
+            if(ns!==this.skyStage){ this.skyStage=ns; this.transitionSky(SKY[ns]); }
+        }
+
+        transitionSky(target){
+            this.skyTransiting=true;
+            const from={...this.skyColor};
+            // Night: activate stars
+            if(this.skyStage===3){
+                this.starGroup.getChildren().forEach((s,i)=>{
+                    this.time.delayedCall(i*20+800,()=>{
+                        const a=Phaser.Math.FloatBetween(0.4,1.0);
+                        this.tweens.add({targets:s,alpha:{from:0,to:a},duration:800,
+                            onComplete:()=>this.tweens.add({targets:s,alpha:{from:a*0.3,to:a},duration:Phaser.Math.Between(600,2200),yoyo:true,repeat:-1})
+                        });
+                    });
+                });
+            }
+            this.tweens.addCounter({from:0,to:100,duration:3000,
+                onUpdate:tw=>{
+                    const t=tw.getValue()/100;
+                    const r=Math.round(from.r+(target.r-from.r)*t);
+                    const g=Math.round(from.g+(target.g-from.g)*t);
+                    const b=Math.round(from.b+(target.b-from.b)*t);
+                    if(this.skyRect) this.skyRect.fillColor=Phaser.Display.Color.GetColor(r,g,b);
+                    this.skyColor={r,g,b};
+                },
+                onComplete:()=>{ this.skyTransiting=false; }
+            });
+        }
+
+        triggerJump(){
+            if(this.isGameOver) return;
+            if(this.jumpCount<2){
+                this.jumpCount++;
+                this.runTween.pause(); this.player.setScale(0.7,0.7);
+                if(this.jumpCount===1){ this.player.setVelocityY(this.j1); SFX.play('jump'); }
+                else{ this.player.setVelocityY(this.j2); this.player.angle=-25; this.dustPfx.emitParticleAt(this.player.x,this.player.y,8); SFX.play('dj'); }
+            }
+        }
+
+        spawnObstacle(){
+            if(this.isGameOver) return;
+            if(Phaser.Math.FloatBetween(0,1)>0.8) return;
+            const W=this.scale.width, gY=this.scale.height-80;
+
+            // Warning flash
+            const warn=this.add.text(W-55,gY-140,'⚠️',{fontSize:'38px'}).setOrigin(0.5).setDepth(25).setAlpha(0);
+            this.tweens.add({targets:warn,alpha:1,duration:200,yoyo:true,repeat:1,onComplete:()=>warn.destroy()});
+
+            // Spawn obstacle immediately
+            const type=Phaser.Math.RND.pick(['tree','bush','puddle']);
+            const spd=this.speed*this.spdMult;
+            const obs=this.obstacles.create(W+150,gY,type).setOrigin(0.5,1);
+            obs.setVelocityX(-spd).setImmovable(true);
+            obs.body.allowGravity=false;
+            if(type==='tree'){ obs.setScale(0.7).setDepth(12); obs.body.setSize(obs.width*0.3,obs.height*0.85).setOffset(obs.width*0.35,obs.height*0.15); }
+            else if(type==='bush'){ obs.setScale(0.7).setDepth(16); obs.body.setSize(obs.width*0.7,obs.height*0.8).setOffset(obs.width*0.15,obs.height*0.2); }
+            else{ obs.setScale(0.8).setDepth(11); obs.body.setSize(obs.width*0.7,obs.height*0.4).setOffset(obs.width*0.15,obs.height*0.6); }
+        }
+
+        spawnCloud(){
+            if(this.isGameOver) return;
+            const W=this.scale.width;
+            const c=this.clouds.create(W+150,Phaser.Math.Between(80,220),'cloud').setScale(Phaser.Math.FloatBetween(0.6,1.2)).setDepth(5);
+            c.setVelocityX(-this.speed*0.6*this.spdMult);
+            c.body.allowGravity=false;
+            c.body.setSize(c.width*0.8,c.height*0.5).setOffset(c.width*0.1,c.height*0.25);
+        }
+
+        spawnFruit(){
+            if(this.isGameOver) return;
+            const W=this.scale.width, gY=this.scale.height-80;
+            const y=Phaser.Utils.Array.GetRandom([gY-50,gY-150,gY-260]);
+            const fd=Phaser.Math.RND.pick([{k:'apple',s:10,sc:0.5},{k:'banana',s:20,sc:0.5},{k:'strawberry',s:50,sc:0.45}]);
+            const fr=this.fruits.create(W+100,y,fd.k).setScale(fd.sc).setDepth(13);
+            fr.setData('pts',fd.s);
+            fr.setVelocityX(-this.speed*this.spdMult);
+            fr.body.allowGravity=false;
+            this.tweens.add({targets:fr,y:y-15,duration:800,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
+        }
+
+        collectFruit(player,fruit){
+            if(!fruit.active) return;
+            const pts=fruit.getData('pts');
+            const now=this.time.now;
+            this.comboCount=(now-this.lastFruitTime<2500)?Math.min(this.comboCount+1,5):1;
+            this.lastFruitTime=now;
+            const total=pts*this.comboCount;
+            this.addScore(total);
+            SFX.play(this.comboCount>1?'combo':'coin');
+            updateCombo(this.comboCount);
+            this.sparkles.emitParticleAt(fruit.x,fruit.y,15);
+            const col=this.comboCount>=3?'#ff9f43':pts===50?'#facc15':'#4ade80';
+            const lbl=this.comboCount>1?`+${total} ×${this.comboCount}`:`+${total}`;
+            const txt=this.add.text(fruit.x,fruit.y-20,lbl,{
+                fontFamily:'Fredoka',fontSize:this.comboCount>1?'36px':'30px',fontStyle:'bold',
+                fill:col,stroke:'#000',strokeThickness:5
+            }).setOrigin(0.5).setDepth(30);
+            this.tweens.add({targets:txt,y:fruit.y-110,alpha:0,duration:900,onComplete:()=>txt.destroy()});
+            fruit.destroy();
+        }
+
+        hitObstacle(p,obs){ if(!this.isInvincible) this.takeDamage('Au! Narazil si na strom!'); }
+        hitCloud(p,cloud)  { if(!this.isInvincible) this.takeDamage('Vletel si do búrkového oblaku!'); }
+
+        takeDamage(reason){
+            if(this.isInvincible||this.isGameOver) return;
+            this.lives--; updateLives(this.lives);
+            SFX.play('hit'); this.comboCount=0; updateCombo(0);
+            if(this.lives<=0){ this.triggerGameOver(reason); return; }
+
+            this.isInvincible=true;
+            this.tweens.add({targets:this.player,alpha:{from:0.15,to:1},duration:80,yoyo:true,repeat:9,
+                onComplete:()=>{ this.player.setAlpha(1); this.isInvincible=false; }
+            });
+            const msg=this.add.text(this.scale.width/2,200,
+                this.lives===1?'💔 Posledný život!':'💔 Jeden život chýba!',
+                {fontFamily:'Fredoka',fontSize:'30px',fontStyle:'bold',fill:'#ff6b6b',stroke:'#000',strokeThickness:5}
+            ).setOrigin(0.5).setDepth(30).setAlpha(0);
+            this.tweens.add({targets:msg,alpha:1,y:175,duration:250,
+                onComplete:()=>this.time.delayedCall(900,()=>
+                    this.tweens.add({targets:msg,alpha:0,duration:400,onComplete:()=>msg.destroy()}))
+            });
+        }
+
+        triggerGameOver(reason){
+            if(this.isGameOver) return;
+            this.isGameOver=true;
+            this.physics.pause(); this.runTween.pause();
+            this.input.keyboard.off('keydown-SPACE');
+            this.input.keyboard.off('keydown-UP');
+            this.input.off('pointerdown');
+            SFX.play('over');
+
+            // Game over spin animation
+            this.tweens.add({
+                targets:this.player, angle:360, scaleY:0.2,
+                y:this.player.y+50, alpha:0.2, duration:750, ease:'Power2',
+                onComplete:()=>{
+                    // Zobraziť okamžite skóre a dôvod
+                    document.getElementById('final-score').innerText=this.score;
+                    document.getElementById('game-over-reason').innerText=reason;
+                    document.getElementById('hud-overlay').classList.add('hidden');
+                    checkMobileUI(false);
+                    document.getElementById('game-over-screen').classList.remove('hidden');
+                    // Async uloženie skóre + detekcia rekordu
+                    saveScore().then(isRecord=>{
+                        const badge=document.getElementById('new-record-badge');
+                        isRecord&&this.score>0?badge.classList.remove('hidden'):badge.classList.add('hidden');
+                    });
+                }
+            });
+        }
+    }
+</script>
+</body>
+</html>
