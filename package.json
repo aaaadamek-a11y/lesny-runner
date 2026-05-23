@@ -1,7 +1,7 @@
 {
-  "name": "lesny-runner",
+  "name": "eejho",
   "version": "1.0.0",
-  "description": "Lesný Runner – HTML5 hra s rebríčkom v Supabase databáze",
+  "description": "Eejho - HTML5 hra s rebríčkom v Supabase databáze",
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0"
   },
