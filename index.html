@@ -358,15 +358,15 @@
     }
 
     function initPhaser() {
-        const gameW = 1280;
-        // Dynamicky prispôsobíme výšku hry na základe pomeru strán zariadenia
-        const aspect = window.innerWidth / window.innerHeight;
-        const gameH = Math.max(720, gameW / aspect);
+        // Skutočné rozlíšenie zariadenia pre perfektnú ostrosť a vyplnenie
+        const dpr = window.devicePixelRatio || 1;
+        const gameW = window.innerWidth;
+        const gameH = window.innerHeight;
 
         game = new Phaser.Game({
             type:Phaser.AUTO, parent:'game-canvas', width:gameW, height:gameH,
             scale:{mode:Phaser.Scale.FIT, autoCenter:Phaser.Scale.CENTER_BOTH},
-            physics:{default:'arcade', arcade:{gravity:{y:1600}, debug:false}},
+            physics:{default:'arcade', arcade:{gravity:{y:gameH*2.2}, debug:false}},
             scene:ForestScene, backgroundColor:'#7dd3fc'
         });
     }
@@ -376,9 +376,7 @@
         constructor(){ super('ForestScene'); }
 
         preload() {
-            const loadingText = this.add.text(this.scale.width/2, this.scale.height/2,'Načítavam svet...',{
-                fontFamily:'Fredoka', fontSize:'32px', fill:'#fff', fontStyle:'bold'
-            }).setOrigin(0.5);
+            const loadingText = this.add.text(this.scale.width/2, this.scale.height/2, 'Načítavam svet...', {fontFamily:'Fredoka',fontSize:'32px',fill:'#fff'}).setOrigin(0.5);
             this.load.on('complete', () => loadingText.destroy());
 
             const SVGS = {
@@ -415,17 +413,26 @@
         }
 
         create() {
-            const W=this.scale.width, H=this.scale.height, gY=H-80;
+            const W=this.scale.width, H=this.scale.height, gY=H-(H*0.1);
             const cfg=CHAR[selectedChar];
 
-            // State
+            // Úprava dynamických hodnôt podľa rozlíšenia
+            const baseScale = Math.min(W / 1280, H / 720);
+            this.baseScale = Math.max(0.4, baseScale); // Min. veľkosť 40%
+
             window.currentGameScore=0;
-            this.score=0; this.speed=500; this.speedTimer=0; this.jumpCount=0;
+            // Rýchlosť je úmerná šírke obrazovky, aby bola reakčná doba rovnaká (napr. prebehne za 2.5s)
+            this.speed = W * 0.4;
+            this.speedTimer=0; this.jumpCount=0;
             this.isGameOver=false; this.lives=2; this.isInvincible=false;
             this.comboCount=0; this.lastFruitTime=0; this.passiveTimer=0;
             this.skyStage=0; this.skyTransiting=false;
             this.skyColor={r:SKY[0].r,g:SKY[0].g,b:SKY[0].b};
-            this.j1=cfg.j1; this.j2=cfg.j2; this.spdMult=cfg.spd; this.hasMag=cfg.mag;
+            
+            // Jumps also scale with height so they feel natural
+            this.j1 = -(H * 1.1) * (cfg.j1 / -800);
+            this.j2 = -(H * 0.9) * (cfg.j2 / -600);
+            this.spdMult=cfg.spd; this.hasMag=cfg.mag;
 
             updateLives(2); updateCombo(0);
 
@@ -443,9 +450,9 @@
             }
 
             // Parallax backgrounds
-            this.bgMountains=this.add.tileSprite(W/2,H-256,W,512,'mountains').setOrigin(0.5);
-            this.bgHills=this.add.tileSprite(W/2,gY-60,W,256,'hills').setOrigin(0.5);
-            this.movingGround=this.add.tileSprite(W/2,gY+64,W,128,'ground').setOrigin(0.5).setDepth(10);
+            this.bgMountains=this.add.tileSprite(W/2,H-256*this.baseScale,W,512,'mountains').setOrigin(0.5).setScale(this.baseScale);
+            this.bgHills=this.add.tileSprite(W/2,gY-60*this.baseScale,W,256,'hills').setOrigin(0.5).setScale(this.baseScale);
+            this.movingGround=this.add.tileSprite(W/2,gY+(128*this.baseScale)/2,W,128,'ground').setOrigin(0.5).setDepth(10).setScale(this.baseScale);
 
             // Physics ground
             this.ground=this.physics.add.staticGroup();
@@ -459,13 +466,13 @@
             this.fruits=this.physics.add.group();
 
             // Player
-            this.player=this.physics.add.sprite(200,gY-100,`char-${selectedChar}`);
-            this.player.setOrigin(0.5,1).setScale(0.7).setCollideWorldBounds(true).setDepth(15);
+            this.player=this.physics.add.sprite(W * 0.15, gY - 50, `char-${selectedChar}`);
+            this.player.setOrigin(0.5,1).setScale(0.7 * this.baseScale).setCollideWorldBounds(true).setDepth(15);
             this.player.body.setSize(this.player.width*0.4, this.player.height*0.6);
             this.player.body.setOffset(this.player.width*0.3, this.player.height*0.4);
 
             this.runTween=this.tweens.add({
-                targets:this.player, scaleY:0.62, scaleX:0.75,
+                targets:this.player, scaleY:(0.62 * this.baseScale), scaleX:(0.75 * this.baseScale),
                 duration:150, yoyo:true, repeat:-1, ease:'Quad.easeInOut'
             });
 
@@ -603,7 +610,7 @@
             if(this.isGameOver) return;
             if(this.jumpCount<2){
                 this.jumpCount++;
-                this.runTween.pause(); this.player.setScale(0.7,0.7);
+                this.runTween.pause(); this.player.setScale(0.7 * this.baseScale, 0.7 * this.baseScale);
                 if(this.jumpCount===1){ this.player.setVelocityY(this.j1); SFX.play('jump'); }
                 else{ this.player.setVelocityY(this.j2); this.player.angle=-25; this.dustPfx.emitParticleAt(this.player.x,this.player.y,8); SFX.play('dj'); }
             }
@@ -612,10 +619,10 @@
         spawnObstacle(){
             if(this.isGameOver) return;
             if(Phaser.Math.FloatBetween(0,1)>0.8) return;
-            const W=this.scale.width, gY=this.scale.height-80;
+            const W=this.scale.width, H=this.scale.height, gY=H-(H*0.1);
 
             // Warning flash
-            const warn=this.add.text(W-55,gY-140,'⚠️',{fontSize:'38px'}).setOrigin(0.5).setDepth(25).setAlpha(0);
+            const warn=this.add.text(W-55,gY-140*this.baseScale,'⚠️',{fontSize:Math.floor(38*this.baseScale)+'px'}).setOrigin(0.5).setDepth(25).setAlpha(0);
             this.tweens.add({targets:warn,alpha:1,duration:200,yoyo:true,repeat:1,onComplete:()=>warn.destroy()});
 
             // Spawn obstacle immediately
@@ -624,15 +631,15 @@
             const obs=this.obstacles.create(W+150,gY,type).setOrigin(0.5,1);
             obs.setVelocityX(-spd).setImmovable(true);
             obs.body.allowGravity=false;
-            if(type==='tree'){ obs.setScale(0.7).setDepth(12); obs.body.setSize(obs.width*0.3,obs.height*0.85).setOffset(obs.width*0.35,obs.height*0.15); }
-            else if(type==='bush'){ obs.setScale(0.7).setDepth(16); obs.body.setSize(obs.width*0.7,obs.height*0.8).setOffset(obs.width*0.15,obs.height*0.2); }
-            else{ obs.setScale(0.8).setDepth(11); obs.body.setSize(obs.width*0.7,obs.height*0.4).setOffset(obs.width*0.15,obs.height*0.6); }
+            if(type==='tree'){ obs.setScale(0.7 * this.baseScale).setDepth(12); obs.body.setSize(obs.width*0.3,obs.height*0.85).setOffset(obs.width*0.35,obs.height*0.15); }
+            else if(type==='bush'){ obs.setScale(0.7 * this.baseScale).setDepth(16); obs.body.setSize(obs.width*0.7,obs.height*0.8).setOffset(obs.width*0.15,obs.height*0.2); }
+            else{ obs.setScale(0.8 * this.baseScale).setDepth(11); obs.body.setSize(obs.width*0.7,obs.height*0.4).setOffset(obs.width*0.15,obs.height*0.6); }
         }
 
         spawnCloud(){
             if(this.isGameOver) return;
-            const W=this.scale.width;
-            const c=this.clouds.create(W+150,Phaser.Math.Between(80,220),'cloud').setScale(Phaser.Math.FloatBetween(0.6,1.2)).setDepth(5);
+            const W=this.scale.width, H=this.scale.height;
+            const c=this.clouds.create(W+150,Phaser.Math.Between(H*0.1,H*0.4),'cloud').setScale(Phaser.Math.FloatBetween(0.6,1.2) * this.baseScale).setDepth(5);
             c.setVelocityX(-this.speed*0.6*this.spdMult);
             c.body.allowGravity=false;
             c.body.setSize(c.width*0.8,c.height*0.5).setOffset(c.width*0.1,c.height*0.25);
@@ -640,14 +647,14 @@
 
         spawnFruit(){
             if(this.isGameOver) return;
-            const W=this.scale.width, gY=this.scale.height-80;
-            const y=Phaser.Utils.Array.GetRandom([gY-50,gY-150,gY-260]);
+            const W=this.scale.width, H=this.scale.height, gY=H-(H*0.1);
+            const y=Phaser.Utils.Array.GetRandom([gY-50*this.baseScale, gY-150*this.baseScale, gY-260*this.baseScale]);
             const fd=Phaser.Math.RND.pick([{k:'apple',s:10,sc:0.5},{k:'banana',s:20,sc:0.5},{k:'strawberry',s:50,sc:0.45}]);
-            const fr=this.fruits.create(W+100,y,fd.k).setScale(fd.sc).setDepth(13);
+            const fr=this.fruits.create(W+100,y,fd.k).setScale(fd.sc * this.baseScale).setDepth(13);
             fr.setData('pts',fd.s);
             fr.setVelocityX(-this.speed*this.spdMult);
             fr.body.allowGravity=false;
-            this.tweens.add({targets:fr,y:y-15,duration:800,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
+            this.tweens.add({targets:fr,y:y-15*this.baseScale,duration:800,yoyo:true,repeat:-1,ease:'Sine.easeInOut'});
         }
 
         collectFruit(player,fruit){
