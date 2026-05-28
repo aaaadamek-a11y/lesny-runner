@@ -358,15 +358,13 @@
     }
 
     function initPhaser() {
-        // Skutočné rozlíšenie zariadenia pre perfektnú ostrosť a vyplnenie
-        const dpr = window.devicePixelRatio || 1;
-        const gameW = window.innerWidth;
-        const gameH = window.innerHeight;
+        const gameW = 1080;
+        const gameH = 1920;
 
         game = new Phaser.Game({
             type:Phaser.AUTO, parent:'game-canvas', width:gameW, height:gameH,
             scale:{mode:Phaser.Scale.FIT, autoCenter:Phaser.Scale.CENTER_BOTH},
-            physics:{default:'arcade', arcade:{gravity:{y:gameH*2.2}, debug:false}},
+            physics:{default:'arcade', arcade:{gravity:{y:2500}, debug:false}},
             scene:ForestScene, backgroundColor:'#7dd3fc'
         });
     }
@@ -413,25 +411,24 @@
         }
 
         create() {
-            const W=this.scale.width, H=this.scale.height, gY=H-(H*0.1);
+            const W=this.scale.width, H=this.scale.height, gY=1750;
             const cfg=CHAR[selectedChar];
 
-            // Úprava dynamických hodnôt podľa rozlíšenia
-            const baseScale = Math.min(W / 1280, H / 720);
-            this.baseScale = Math.max(0.4, baseScale); // Min. veľkosť 40%
+            // Pevný scale pre 1080x1920 (zväčšené pre mobily)
+            this.baseScale = 1.4;
 
             window.currentGameScore=0;
-            // Rýchlosť je úmerná šírke obrazovky, aby bola reakčná doba rovnaká (napr. prebehne za 2.5s)
-            this.speed = W * 0.4;
+            // Rýchlosť behu primeraná šírke
+            this.speed = 650;
             this.speedTimer=0; this.jumpCount=0;
             this.isGameOver=false; this.lives=2; this.isInvincible=false;
             this.comboCount=0; this.lastFruitTime=0; this.passiveTimer=0;
             this.skyStage=0; this.skyTransiting=false;
             this.skyColor={r:SKY[0].r,g:SKY[0].g,b:SKY[0].b};
             
-            // Jumps also scale with height so they feel natural
-            this.j1 = -(H * 1.1) * (cfg.j1 / -800);
-            this.j2 = -(H * 0.9) * (cfg.j2 / -600);
+            // Jumps also scale with the new gravity (2500 vs old 1600)
+            this.j1 = cfg.j1 * 1.8;
+            this.j2 = cfg.j2 * 1.8;
             this.spdMult=cfg.spd; this.hasMag=cfg.mag;
 
             updateLives(2); updateCombo(0);
@@ -533,7 +530,7 @@
 
             // Speed ramp
             this.speedTimer+=delta;
-            if(this.speedTimer>5000){ this.speed=Math.min(this.speed+25,900); this.speedTimer=0; }
+            if(this.speedTimer>5000){ this.speed=Math.min(this.speed+30,1200); this.speedTimer=0; }
 
             // Passive score per second
             this.passiveTimer+=delta;
@@ -619,7 +616,7 @@
         spawnObstacle(){
             if(this.isGameOver) return;
             if(Phaser.Math.FloatBetween(0,1)>0.8) return;
-            const W=this.scale.width, H=this.scale.height, gY=H-(H*0.1);
+            const W=this.scale.width, H=this.scale.height, gY=1750;
 
             // Warning flash
             const warn=this.add.text(W-55,gY-140*this.baseScale,'⚠️',{fontSize:Math.floor(38*this.baseScale)+'px'}).setOrigin(0.5).setDepth(25).setAlpha(0);
@@ -647,7 +644,7 @@
 
         spawnFruit(){
             if(this.isGameOver) return;
-            const W=this.scale.width, H=this.scale.height, gY=H-(H*0.1);
+            const W=this.scale.width, H=this.scale.height, gY=1750;
             const y=Phaser.Utils.Array.GetRandom([gY-50*this.baseScale, gY-150*this.baseScale, gY-260*this.baseScale]);
             const fd=Phaser.Math.RND.pick([{k:'apple',s:10,sc:0.5},{k:'banana',s:20,sc:0.5},{k:'strawberry',s:50,sc:0.45}]);
             const fr=this.fruits.create(W+100,y,fd.k).setScale(fd.sc * this.baseScale).setDepth(13);
